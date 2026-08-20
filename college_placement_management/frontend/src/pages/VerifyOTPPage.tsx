@@ -18,7 +18,7 @@ export default function VerifyOTPPage({
 
   try {
     const response = await fetch(
-      "http://127.0.0.1:8000/verify-otp",
+      "`${import.meta.env.VITE_API_URL}/verify-otp`",
       {
         method: "POST",
         headers: {

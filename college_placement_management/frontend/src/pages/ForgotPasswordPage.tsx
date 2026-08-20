@@ -16,7 +16,7 @@ export default function ForgotPasswordPage({
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/forgot-password",
+        `${import.meta.env.VITE_API_URL}/forgot-password`,
         {
           method: "POST",
           headers: {

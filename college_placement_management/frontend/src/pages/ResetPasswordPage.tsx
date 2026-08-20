@@ -33,7 +33,7 @@ export default function ResetPasswordPage({
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/reset-password",
+        "`${import.meta.env.VITE_API_URL}/reset-password`",
         {
           method: "POST",
           headers: {
