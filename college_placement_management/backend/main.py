@@ -41,12 +41,12 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        
+        "https://college-placement-management-system-flax.vercel.app",
         "http://localhost:5173",
         "http://localhost:3000",
+    ],
         
-        "https://college-placement-management-system-flax.vercel.app",],
-    
-        allow_origin_regex="https://college-placement-management-system-ksqlrbv8-bhavanmorla.vercel.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
