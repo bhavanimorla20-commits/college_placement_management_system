@@ -585,7 +585,11 @@ def create_user(
 
         print(
             "Student credentials email failed:",
-            e
+            repr(e)
+        )
+        raise HTTPException(
+            status_code=500,
+            details=f"Student created, but email failed: {str(e)}"
         )
 
     return {
