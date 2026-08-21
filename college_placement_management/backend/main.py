@@ -19,8 +19,7 @@ from schemas import (
 from auth import hash_password, verify_password
 
 import os
-import smtplib
-from email.message import EmailMessage
+import resend
 from dotenv import load_dotenv
 
 
@@ -29,6 +28,16 @@ from dotenv import load_dotenv
 # =========================================================
 
 load_dotenv()
+
+resend.api_key = os.getenv("RESEND_API_KEY")
+
+# Resend sender email
+# For testing you can use onboarding@resend.dev
+# For production use your verified domain email.
+FROM_EMAIL = os.getenv(
+    "FROM_EMAIL",
+    "onboarding@resend.dev"
+)
 
 
 # =========================================================
@@ -41,14 +50,11 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        
-    "https://college-placement-management-system-flax.vercel.app",
-    
+        "https://college-placement-management-system-flax.vercel.app",
         "http://localhost:5173",
         "http://localhost:3000",
-        
     ],
-    allow_origin_regex=r"https://college-placement-management-system-.*\.vercel\.app",  
+    allow_origin_regex=r"https://college-placement-management-system-.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,13 +85,17 @@ def home():
 
 @app.get("/db-test")
 def db_test():
+
     try:
+
         with engine.connect():
+
             return {
                 "message": "Database connected successfully"
             }
 
     except Exception as e:
+
         return {
             "error": str(e)
         }
@@ -100,50 +110,59 @@ def send_student_credentials(
     student_email: str,
     password: str,
 ):
-    sender_email = os.getenv("SENDER_EMAIL")
-    sender_password = os.getenv("SENDER_PASSWORD")
 
-    if not sender_email or not sender_password:
+    if not resend.api_key:
         raise Exception(
-            "SENDER_EMAIL or SENDER_PASSWORD is missing in .env"
+            "RESEND_API_KEY is missing"
         )
 
-    msg = EmailMessage()
+    params = {
+        "from": FROM_EMAIL,
+        "to": [student_email],
+        "subject": "College Placement Management System - Student Account",
+        "html": f"""
+            <h2>College Placement Management System</h2>
 
-    msg["Subject"] = "College Placement Management System - Student Account"
+            <p>Hello {student_name},</p>
 
-    msg["From"] = sender_email
+            <p>
+                Your student account has been created by the administrator.
+            </p>
 
-    msg["To"] = student_email
+            <h3>Login Details</h3>
 
-    msg.set_content(
-        f"""Hello {student_name},
+            <p>
+                <strong>Email:</strong> {student_email}
+            </p>
 
-Your student account has been created by the administrator.
+            <p>
+                <strong>Password:</strong> {password}
+            </p>
 
-Login Details:
+            <p>
+                You can use these credentials to login
+                to the Student Dashboard.
+            </p>
 
-Email: {student_email}
-Password: {password}
+            <p>
+                Please keep your password secure.
+            </p>
 
-You can use these credentials to login to the Student Dashboard.
+            <br>
 
-Please keep your password secure.
+            <p>
+                Regards,<br>
+                College Placement Management System
+            </p>
+        """
+    }
 
-Regards,
-College Placement Management System
-"""
+    response = resend.Emails.send(params)
+
+    print(
+        "Student credentials email sent successfully:",
+        response
     )
-
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-
-        server.login(
-            sender_email,
-            sender_password
-        )
-
-        server.send_message(msg)
 
 
 # =========================================================
@@ -156,7 +175,6 @@ def signup(
     db: Session = Depends(get_db)
 ):
 
-    # Check existing email
     existing_user = (
         db.query(models.User)
         .filter(models.User.email == user.email)
@@ -164,15 +182,16 @@ def signup(
     )
 
     if existing_user:
+
         raise HTTPException(
             status_code=400,
             detail="Email already registered"
         )
 
-    # Hash password
-    hashed_password = hash_password(user.password)
+    hashed_password = hash_password(
+        user.password
+    )
 
-    # Create user
     new_user = models.User(
         name=user.name,
         email=user.email,
@@ -223,23 +242,24 @@ def login(
     )
 
     if not existing_user:
+
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
         )
 
-    # Check active status
     if not existing_user.is_active:
+
         raise HTTPException(
             status_code=403,
             detail="Your account is inactive. Please contact the administrator."
         )
 
-    # Check password
     if not verify_password(
         user.password,
         existing_user.password
     ):
+
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
@@ -271,69 +291,85 @@ def forgot_password(
     )
 
     if not user:
+
         raise HTTPException(
             status_code=404,
             detail="Email not registered"
         )
 
-    otp = str(randint(100000, 999999))
-
-    otp_expiry = datetime.utcnow() + timedelta(
-        minutes=5
+    # Generate 6 digit OTP
+    otp = str(
+        randint(100000, 999999)
     )
 
+    # OTP valid for 5 minutes
+    otp_expiry = (
+        datetime.utcnow()
+        + timedelta(minutes=5)
+    )
+
+    # Save OTP in database
     user.otp = otp
     user.otp_expiry = otp_expiry
 
     db.commit()
 
-    sender_email = os.getenv("SENDER_EMAIL")
-    sender_password = os.getenv("SENDER_PASSWORD")
+    # Check Resend API key
+    if not resend.api_key:
 
-    msg = EmailMessage()
-
-    msg["Subject"] = (
-        "College Placement Management System - OTP"
-    )
-
-    msg["From"] = sender_email
-
-    msg["To"] = request.email
-
-    msg.set_content(
-        f"""Hello {user.name},
-
-Your OTP for password reset is: {otp}
-
-This OTP is valid for 5 minutes.
-
-Please do not share this OTP with anyone.
-
-Regards,
-College Placement Management System
-"""
-    )
+        raise HTTPException(
+            status_code=500,
+            detail="RESEND_API_KEY is missing"
+        )
 
     try:
 
-        with smtplib.SMTP(
-            "smtp.gmail.com",
-            587
-        ) as server:
+        params = {
+            "from": FROM_EMAIL,
+            "to": [request.email],
+            "subject": "College Placement Management System - OTP",
+            "html": f"""
+                <h2>College Placement Management System</h2>
 
-            server.starttls()
+                <p>Hello {user.name},</p>
 
-            server.login(
-                sender_email,
-                sender_password
-            )
+                <p>
+                    Your OTP for password reset is:
+                </p>
 
-            server.send_message(msg)
+                <h1>{otp}</h1>
+
+                <p>
+                    This OTP is valid for
+                    <strong>5 minutes</strong>.
+                </p>
+
+                <p>
+                    Please do not share this OTP with anyone.
+                </p>
+
+                <br>
+
+                <p>
+                    Regards,<br>
+                    College Placement Management System
+                </p>
+            """
+        }
+
+        response = resend.Emails.send(
+            params
+        )
+
+        print(
+            "OTP email sent successfully:",
+            response
+        )
 
     except Exception as e:
 
         print(
-            "Email sending failed:",
+            "Resend email sending failed:",
             e
         )
 
@@ -364,12 +400,14 @@ def verify_otp(
     )
 
     if not user:
+
         raise HTTPException(
             status_code=404,
             detail="Email not registered"
         )
 
     if user.otp != request.otp:
+
         raise HTTPException(
             status_code=400,
             detail="Invalid OTP"
@@ -379,6 +417,7 @@ def verify_otp(
         not user.otp_expiry
         or datetime.utcnow() > user.otp_expiry
     ):
+
         raise HTTPException(
             status_code=400,
             detail="OTP expired"
@@ -406,12 +445,14 @@ def reset_password(
     )
 
     if not user:
+
         raise HTTPException(
             status_code=404,
             detail="Email not registered"
         )
 
     if user.otp != request.otp:
+
         raise HTTPException(
             status_code=400,
             detail="Invalid OTP"
@@ -421,15 +462,18 @@ def reset_password(
         not user.otp_expiry
         or datetime.utcnow() > user.otp_expiry
     ):
+
         raise HTTPException(
             status_code=400,
             detail="OTP expired"
         )
 
+    # Hash new password
     user.password = hash_password(
         request.new_password
     )
 
+    # Clear OTP after successful reset
     user.otp = None
     user.otp_expiry = None
 
@@ -449,9 +493,13 @@ def get_users(
     db: Session = Depends(get_db)
 ):
 
-    users = db.query(models.User).all()
+    users = (
+        db.query(models.User)
+        .all()
+    )
 
     return [
+
         {
             "id": user.id,
             "name": user.name,
@@ -485,10 +533,6 @@ def create_user(
     db: Session = Depends(get_db)
 ):
 
-    # -----------------------------------------------------
-    # Check email
-    # -----------------------------------------------------
-
     existing_user = (
         db.query(models.User)
         .filter(models.User.email == user.email)
@@ -496,22 +540,15 @@ def create_user(
     )
 
     if existing_user:
+
         raise HTTPException(
             status_code=400,
             detail="Email already registered"
         )
 
-    # -----------------------------------------------------
-    # Hash password
-    # -----------------------------------------------------
-
     hashed_password = hash_password(
         user.password
     )
-
-    # -----------------------------------------------------
-    # Create user
-    # -----------------------------------------------------
 
     new_user = models.User(
         name=user.name,
@@ -533,20 +570,13 @@ def create_user(
         is_active=True,
     )
 
-    # -----------------------------------------------------
-    # Save to PostgreSQL
-    # -----------------------------------------------------
-
     db.add(new_user)
 
     db.commit()
 
     db.refresh(new_user)
 
-    # -----------------------------------------------------
-    # Send login credentials to student email
-    # -----------------------------------------------------
-
+    # Send credentials email
     try:
 
         send_student_credentials(
@@ -562,17 +592,12 @@ def create_user(
             e
         )
 
-        # Student is already saved in DB.
-        # Email failure should not delete the student.
-
-    # -----------------------------------------------------
-    # Response
-    # -----------------------------------------------------
-
     return {
+
         "message": "User created successfully",
 
         "user": {
+
             "id": new_user.id,
             "name": new_user.name,
             "email": new_user.email,
@@ -611,6 +636,7 @@ def update_user(
     )
 
     if not existing_user:
+
         raise HTTPException(
             status_code=404,
             detail="User not found"
@@ -630,8 +656,8 @@ def update_user(
     existing_user.backlogs = user.backlogs
     existing_user.placement_status = user.placement_status
 
-    # Update password only if a new password is provided
     if user.password:
+
         existing_user.password = hash_password(
             user.password
         )
@@ -641,9 +667,11 @@ def update_user(
     db.refresh(existing_user)
 
     return {
+
         "message": "Student updated successfully",
 
         "user": {
+
             "id": existing_user.id,
             "name": existing_user.name,
             "email": existing_user.email,
@@ -682,6 +710,7 @@ def update_user_status(
     )
 
     if not user:
+
         raise HTTPException(
             status_code=404,
             detail="User not found"
@@ -694,6 +723,7 @@ def update_user_status(
     db.refresh(user)
 
     return {
+
         "message": "User status updated successfully",
         "id": user.id,
         "is_active": user.is_active
@@ -717,6 +747,7 @@ def delete_user(
     )
 
     if not user:
+
         raise HTTPException(
             status_code=404,
             detail="User not found"
