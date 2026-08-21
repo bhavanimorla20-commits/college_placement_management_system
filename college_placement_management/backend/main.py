@@ -43,6 +43,7 @@ app.add_middleware(
     allow_origins=[
         
     "https://college-placement-management-system-flax.vercel.app",
+    "https://college-placement-management-system-32l2yiddu-bhavanimorla.vercel.app",
         "http://localhost:5173",
         "http://localhost:3000",
         
