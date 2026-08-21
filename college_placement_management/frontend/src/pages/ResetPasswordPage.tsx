@@ -1,5 +1,3 @@
-
-
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -18,7 +16,6 @@ export default function ResetPasswordPage({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  // Eye icon states
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -33,7 +30,7 @@ export default function ResetPasswordPage({
 
     try {
       const response = await fetch(
-        "`${import.meta.env.VITE_API_URL}/reset-password`",
+        `${import.meta.env.VITE_API_URL}/reset-password`,
         {
           method: "POST",
           headers: {
@@ -60,7 +57,7 @@ export default function ResetPasswordPage({
         onResetSuccess();
       }, 1000);
     } catch (error) {
-      console.error(error);
+      console.error("Reset password error:", error);
       setMessage("Backend connection failed");
     }
   };
@@ -141,7 +138,13 @@ export default function ResetPasswordPage({
 
         {/* Message */}
         {message && (
-          <p className="text-center text-sm font-medium text-[#0B1F3A]">
+          <p
+            className={`text-center text-sm font-medium ${
+              message === "Password reset successfully!"
+                ? "text-green-600"
+                : "text-red-600"
+            }`}
+          >
             {message}
           </p>
         )}

@@ -12,40 +12,40 @@ export default function VerifyOTPPage({
   const [otp, setOtp] = useState("");
   const [message, setMessage] = useState("");
 
- const handleVerify = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setMessage("");
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage("");
 
-  try {
-    const response = await fetch(
-      "`${import.meta.env.VITE_API_URL}/verify-otp`",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          otp,
-        }),
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/verify-otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            otp,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.detail || "Invalid OTP");
+        return;
       }
-    );
 
-    const data = await response.json();
+      setMessage("OTP verified successfully!");
 
-    if (!response.ok) {
-      setMessage(data.detail || "Invalid OTP");
-      return;
+      onVerify(otp);
+    } catch (error) {
+      console.error("Verify OTP error:", error);
+      setMessage("Backend connection failed");
     }
-
-    setMessage("OTP verified successfully");
-
-    onVerify(otp);
-  } catch (error) {
-    console.error(error);
-    setMessage("Backend connection failed");
-  }
-};
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] px-4">
@@ -67,7 +67,6 @@ export default function VerifyOTPPage({
           </p>
         </div>
 
-        {/* OTP */}
         <div>
           <label className="mb-1 block text-sm font-medium text-[#0B1F3A]">
             OTP
@@ -88,7 +87,6 @@ export default function VerifyOTPPage({
           />
         </div>
 
-        {/* Verify button */}
         <button
           type="submit"
           className="w-full rounded-lg bg-[#F97316] p-3 font-semibold text-white transition hover:bg-[#EA580C]"
@@ -96,7 +94,6 @@ export default function VerifyOTPPage({
           Verify OTP
         </button>
 
-        {/* Message */}
         {message && (
           <p
             className={`text-center text-sm font-medium ${
@@ -109,7 +106,6 @@ export default function VerifyOTPPage({
           </p>
         )}
 
-        {/* Back */}
         <button
           type="button"
           onClick={onBack}
