@@ -110,11 +110,8 @@ def send_student_credentials(
     student_email: str,
     password: str,
 ):
-
     if not resend.api_key:
-        raise Exception(
-            "RESEND_API_KEY is missing"
-        )
+        raise Exception("RESEND_API_KEY is missing")
 
     params = {
         "from": FROM_EMAIL,
@@ -163,7 +160,6 @@ def send_student_credentials(
         "Student credentials email sent successfully:",
         response
     )
-
 
 # =========================================================
 # SIGNUP
