@@ -18,7 +18,8 @@ type Student = {
   placement_status?: string;
 };
 
-const API_URL = "const API_URL = import.meta.env.VITE_API_URL;";
+const API_URL = 
+import.meta.env.VITE_API_URL;
 
 export default function StudentDashboardPage() {
   const [student, setStudent] = useState<Student | null>(null);
