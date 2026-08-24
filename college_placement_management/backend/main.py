@@ -589,7 +589,7 @@ def create_user(
         )
         raise HTTPException(
             status_code=500,
-            details=f"Student created, but email failed: {str(e)}"
+            detail=f"Student created, but email failed: {str(e)}"
         )
 
     return {
